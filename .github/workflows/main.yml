@@ -14,39 +14,44 @@ jobs:
   build:
     name: Build LineGuard Release APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Extract LineGuard source
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ZIP="LineGuard-Extracted-GitHub-Root.zip"
+
+          if [ ! -f "$ZIP" ]; then
+            echo "ERROR: Source ZIP not found: $ZIP"
+            exit 1
+          fi
+
+          echo "Extracting LineGuard project..."
+          unzip -o "$ZIP" -d .
+
+          echo "Checking extracted files..."
+          ls -la
+          ls -la artifacts/lineguard/
+
+          test -f artifacts/lineguard/package.json
+
       - name: Check project structure
         shell: bash
         run: |
-          set -e
-          echo "Repository root:"
-          pwd
-          ls -la
+          set -euo pipefail
 
-          test -f package.json || {
-            echo "ERROR: Root package.json not found"
-            exit 1
-          }
+          test -f package.json
+          test -f pnpm-lock.yaml
+          test -f pnpm-workspace.yaml
+          test -f artifacts/lineguard/package.json
 
-          test -f pnpm-lock.yaml || {
-            echo "ERROR: pnpm-lock.yaml not found"
-            exit 1
-          }
-
-          test -f pnpm-workspace.yaml || {
-            echo "ERROR: pnpm-workspace.yaml not found"
-            exit 1
-          }
-
-          test -f artifacts/lineguard/package.json || {
-            echo "ERROR: LineGuard app package.json not found"
-            exit 1
-          }
+          echo "Project structure verified."
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -122,9 +127,11 @@ jobs:
         working-directory: artifacts/lineguard/android
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
+
           test -f gradlew
           test -f app/build.gradle || test -f app/build.gradle.kts
+
           chmod +x gradlew
 
       - name: Build release APK
@@ -144,12 +151,13 @@ jobs:
           fi
 
           mkdir -p build-output
+
           cp "$APK" build-output/LineGuard-release.apk
 
           sha256sum build-output/LineGuard-release.apk \
             > build-output/SHA256SUMS.txt
 
-          echo "APK successfully generated:"
+          echo "APK generated successfully."
           ls -lh build-output/
 
       - name: Upload APK artifact
