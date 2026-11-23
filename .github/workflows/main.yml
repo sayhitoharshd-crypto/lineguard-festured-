@@ -3,7 +3,6 @@ name: LineGuard Android APK Build
 
 on:
   workflow_dispatch:
-
   push:
     branches:
       - main
@@ -13,22 +12,52 @@ permissions:
 
 jobs:
   build:
-    name: Build LineGuard
+    name: Build LineGuard Release APK
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Check project structure
+        shell: bash
+        run: |
+          set -e
+          echo "Repository root:"
+          pwd
+          ls -la
+
+          test -f package.json || {
+            echo "ERROR: Root package.json not found"
+            exit 1
+          }
+
+          test -f pnpm-lock.yaml || {
+            echo "ERROR: pnpm-lock.yaml not found"
+            exit 1
+          }
+
+          test -f pnpm-workspace.yaml || {
+            echo "ERROR: pnpm-workspace.yaml not found"
+            exit 1
+          }
+
+          test -f artifacts/lineguard/package.json || {
+            echo "ERROR: LineGuard app package.json not found"
+            exit 1
+          }
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: pnpm
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -37,20 +66,45 @@ jobs:
           java-version: "17"
 
       - name: Configure Android SDK
+        shell: bash
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -V | tail -n 1)
+          set -euo pipefail
+
+          if [ -z "${ANDROID_HOME:-}" ]; then
+            echo "ERROR: ANDROID_HOME is not configured"
+            exit 1
+          fi
+
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
+            -type f -name sdkmanager | sort -V | tail -n 1)
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "ERROR: Android SDK manager not found"
+            exit 1
+          fi
+
+          echo "Using SDK manager: $SDKMANAGER"
           echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
           echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
 
-      - name: Accept licenses
+      - name: Accept Android SDK licenses
+        shell: bash
         run: |
-          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses
+          set -e
+          yes | "$SDKMANAGER" \
+            --sdk_root="$ANDROID_HOME" --licenses || true
 
-      - name: Install SDK
+      - name: Install Android SDK packages
+        shell: bash
         run: |
-          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          set -e
+          "$SDKMANAGER" \
+            --sdk_root="$ANDROID_HOME" \
+            --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -64,24 +118,45 @@ jobs:
           EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
         run: pnpm exec expo prebuild --platform android --clean
 
+      - name: Verify Android project
+        working-directory: artifacts/lineguard/android
+        shell: bash
+        run: |
+          set -e
+          test -f gradlew
+          test -f app/build.gradle || test -f app/build.gradle.kts
+          chmod +x gradlew
+
       - name: Build release APK
         working-directory: artifacts/lineguard/android
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon
 
-      - name: Verify APK
+      - name: Verify and prepare APK
+        shell: bash
         run: |
+          set -euo pipefail
+
           APK="artifacts/lineguard/android/app/build/outputs/apk/release/app-release.apk"
-          test -s "$APK"
+
+          if [ ! -s "$APK" ]; then
+            echo "ERROR: Release APK was not generated"
+            exit 1
+          fi
+
           mkdir -p build-output
           cp "$APK" build-output/LineGuard-release.apk
-          sha256sum build-output/LineGuard-release.apk > build-output/SHA256SUMS.txt
 
-      - name: Upload APK
+          sha256sum build-output/LineGuard-release.apk \
+            > build-output/SHA256SUMS.txt
+
+          echo "APK successfully generated:"
+          ls -lh build-output/
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: LineGuard-Release-APK
           path: build-output/
           if-no-files-found: error
+          retention-days: 14
           
