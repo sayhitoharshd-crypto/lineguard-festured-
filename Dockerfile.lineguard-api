@@ -1,0 +1,11 @@
+FROM node:22-slim
+WORKDIR /app
+RUN corepack enable
+COPY . .
+# Regenerate the workspace lock during image build until the checked-in lock is refreshed in a networked environment.
+RUN pnpm install --no-frozen-lockfile
+RUN pnpm --filter @workspace/api-server build
+ENV NODE_ENV=production
+ENV PORT=8080
+EXPOSE 8080
+CMD ["pnpm", "--filter", "@workspace/api-server", "start"]

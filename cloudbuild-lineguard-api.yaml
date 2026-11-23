@@ -1,0 +1,18 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "Dockerfile.lineguard-api", "-t", "gcr.io/$PROJECT_ID/lineguard-api:$COMMIT_SHA", "."]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "gcr.io/$PROJECT_ID/lineguard-api:$COMMIT_SHA"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - lineguard-api
+      - --image=gcr.io/$PROJECT_ID/lineguard-api:$COMMIT_SHA
+      - --region=asia-south1
+      - --platform=managed
+      - --allow-unauthenticated
+      - --port=8080
+images:
+  - gcr.io/$PROJECT_ID/lineguard-api:$COMMIT_SHA

@@ -1,0 +1,24 @@
+# Required for the API server
+PORT=8080
+NODE_ENV=production
+FIREBASE_PROJECT_ID=lineguard-68bb0
+GOOGLE_APPLICATION_CREDENTIALS=/secure/path/firebase-admin-service-account.json
+
+# Razorpay test mode first; live credentials only after merchant/Route approval
+RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
+RAZORPAY_KEY_SECRET=replace_in_secret_manager
+RAZORPAY_WEBHOOK_SECRET=replace_in_secret_manager
+
+# Optional Google Sheets admin dashboard
+GOOGLE_SHEETS_SPREADSHEET_ID=your_spreadsheet_id
+GOOGLE_SERVICE_ACCOUNT_EMAIL=service-account@project.iam.gserviceaccount.com
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"
+LINEGUARD_ADMIN_UIDS=comma,separated,firebase,uid,list
+
+# Mobile build-time variable; set to the deployed HTTPS API URL
+EXPO_PUBLIC_API_URL=https://api.example.com
+
+# Firebase Storage bucket for private evidence uploads
+FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+# Public HTTPS base URL for hosted Razorpay checkout return page
+PUBLIC_API_URL=https://api.your-domain.example
