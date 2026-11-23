@@ -33,7 +33,7 @@ jobs:
           fi
 
           echo "Extracting LineGuard project..."
-          unzip -o "$ZIP" -d .
+          unzip -o "$ZIP" -x ".github/*" -d .
 
           echo "Checking extracted files..."
           ls -la
@@ -50,6 +50,7 @@ jobs:
           test -f pnpm-lock.yaml
           test -f pnpm-workspace.yaml
           test -f artifacts/lineguard/package.json
+          test -f artifacts/api-server/package.json
 
           echo "Project structure verified."
 
@@ -104,6 +105,7 @@ jobs:
         shell: bash
         run: |
           set -e
+
           "$SDKMANAGER" \
             --sdk_root="$ANDROID_HOME" \
             --install \
@@ -112,7 +114,7 @@ jobs:
             "build-tools;36.0.0"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: TypeScript check
         run: pnpm --filter @workspace/lineguard run typecheck
@@ -130,7 +132,11 @@ jobs:
           set -euo pipefail
 
           test -f gradlew
-          test -f app/build.gradle || test -f app/build.gradle.kts
+
+          if [ ! -f app/build.gradle ] && [ ! -f app/build.gradle.kts ]; then
+            echo "ERROR: Android app Gradle file not found"
+            exit 1
+          fi
 
           chmod +x gradlew
 
@@ -157,7 +163,7 @@ jobs:
           sha256sum build-output/LineGuard-release.apk \
             > build-output/SHA256SUMS.txt
 
-          echo "APK generated successfully."
+          echo "APK generated successfully:"
           ls -lh build-output/
 
       - name: Upload APK artifact
@@ -167,4 +173,3 @@ jobs:
           path: build-output/
           if-no-files-found: error
           retention-days: 14
-          
